@@ -1,0 +1,241 @@
+---
+title: "Lush_Product_Portfolio_Visualization"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+# Read in the various files
+```{r}
+library(forcats)
+library(wesanderson)
+library(tidyverse)
+library(dbplyr)
+library(readxl)
+library(ggplot2)
+library(hrbrthemes)
+library(viridis)
+lush_products<-read_excel("all_lush_products_ingredients.xlsx")
+lush_products<-na.omit(lush_products)
+lush_palm_oil_products<-read_excel("lush_palm_oil_products_v01.xlsx")
+lush_products
+lush_palm_oil_products
+```
+Count of Products
+```{r}
+nrow(lush_products)
+unique_lush_products<-unique(lush_products['Product'])
+unique_lush_products
+unique_lush_palm_oil_products<- unique(lush_palm_oil_products['Product'])
+unique_lush_palm_oil_products
+```
+Average number of palm oil products
+```{r}
+lush_palm_oil_products<-lush_palm_oil_products%>%filter(Primary_Sub_Category!='new'&Primary_Sub_Category!='gifts'&Primary_Sub_Category!='tramp'&Primary_Sub_Category!='discover')
+lush_palm_oil_products <- lush_palm_oil_products%>%group_by(Primary_Sub_Category,Product)%>% mutate(number_of_derivs =n_distinct(Palm_Oil_Derivative))
+lush_palm_oil_products <-lush_palm_oil_products[!duplicated(lush_palm_oil_products$Product),]
+lush_palm_oil_products
+```
+Graphs
+```{r}
+unique_lush_palm_oil_products_data <- lush_palm_oil_products%>%group_by(Primary_Sub_Category,Secondary_Sub_Category)%>%mutate(average_number_of_derives = mean(number_of_derivs))
+unique_lush_palm_oil_products_data<-unique_lush_palm_oil_products_data%>%distinct(Primary_Sub_Category,Secondary_Sub_Category,.keep_all = TRUE)
+
+
+# Plot of Palmn Oil Derivatives to Sub Category
+unique_lush_palm_oil_products_data %>%
+  arrange(desc(number_of_derivs)) %>%
+  ggplot(aes(x=Primary_Sub_Category, y=Secondary_Sub_Category, size = average_number_of_derives,fill=Palm_Oil_Derivative)) +
+    geom_point(alpha=0.5,shape=21,color="black") +
+    scale_size(range = c(2, 8), name="Number of Palm-Oil Derivatives")+
+   scale_fill_viridis(discrete=TRUE, guide=FALSE, option="A") +
+    theme(legend.position="right") +
+  xlab("Primary Sub Category")+
+  ylab("Secondary Sub Category")+
+  theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.border     = element_blank(),
+          panel.background = element_blank(),
+          panel.spacing=unit(.5,"lines"),
+          axis.line        = element_line(colour = "black", size = 1),
+          legend.key       = element_blank(),
+          axis.ticks       = element_line(colour = "black", size = 1),
+          axis.text.y        = element_text(size = 7, colour = "black"),
+          axis.text.x        = element_text(size = 7, colour = "black"),
+          plot.title       = element_text(hjust = 0.0, size = 15 , colour = "black", face="bold"),
+          axis.title       = element_text(size = 20 ),
+          legend.text      = element_text(size = 10 ),
+          legend.title     = element_text(size = 10, face = "bold"),
+          legend.position  = "right",
+          legend.box = "vertical"
+  )+scale_fill_brewer(palette="Greens")
+```
+Break Down of Palm Oil vs Non Palmoil
+```{r}
+lush_products<-lush_products%>%group_by(Primary_Sub_Category,Palm_Oil)%>%mutate(number_of_occurences=n_distinct(Product))
+filtered_data<-lush_products%>%distinct(Primary_Sub_Category,Palm_Oil,.keep_all = TRUE)
+filtered_data <-filtered_data%>%filter(Primary_Sub_Category!='new'&Primary_Sub_Category!='gifts'&&Primary_Sub_Category!='tramp'&Primary_Sub_Category!='discover')
+data<-filtered_data
+# Define a function to do the work.
+multi_graph_plot <- function(scale_value = 1, filename, data) {
+  g <- ggplot(data) +
+    aes(x = Palm_Oil, y = number_of_occurences,fill=Palm_Oil, label=number_of_occurences) + 
+    geom_bar(stat = "identity", colour="black") +
+    geom_text(size = 3, position = position_stack(vjust = 0.5),color="white") +
+    facet_wrap(~Primary_Sub_Category, scales = "free")+
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.border     = element_blank(),
+          panel.background = element_blank(),
+          panel.spacing=unit(.5,"lines"),
+          axis.line        = element_line(colour = "black", size = 1),
+          legend.key       = element_blank(),
+          axis.ticks       = element_line(colour = "black", size = 1),
+          axis.text        = element_text(size = 10 * scale_value, colour = "black"),
+          plot.title       = element_text(hjust = 0.0, size = 15 * scale_value, colour = "black", face="bold"),
+          axis.title       = element_text(size = 20 * scale_value),
+          legend.text      = element_text(size = 10 * scale_value),
+          legend.title     = element_text(size = 10, face = "bold"),
+          legend.position  = c(.7, .10),
+          strip.placement="outside",
+          strip.background=element_blank()
+          ) + 
+    labs(title= "Analysis of Different Products via Primary Categories",
+         subtitle="(Number of Products segmented by Palm Oil Derivatives)",
+         x="",
+         y="Number of Products",
+         fill="Contains Palm Oil Derivative")
+
+  ggsave(g, width = 7 * scale_value, height = 7 * scale_value, file = filename)
+  g
+}
+
+multi_graph_plot(filename = "Analysis of Different Products via Primary Categories.pdf",data=data)
+
+```
+Creation of multi-facet graphs
+```{r}
+data<-lush_palm_oil_products%>%filter(Primary_Sub_Category!='new'&Primary_Sub_Category!='gifts'&&Primary_Sub_Category!='tramp'&Primary_Sub_Category!='discover')
+data<- data %>% group_by(Primary_Sub_Category,Palm_Oil_Derivative)%>%mutate(number_of_derivs_occurance_per_category=n_distinct(Product)) 
+data<-data%>%distinct(Primary_Sub_Category,Palm_Oil_Derivative,.keep_all=TRUE)
+# Define a function to do the work.
+multi_graph_plot_2 <- function(scale_value = 1, filename, data) {
+  g <- ggplot(data) +
+    aes(x = Palm_Oil_Derivative,y=number_of_derivs_occurance_per_category, fill=Palm_Oil_Derivative,label=number_of_derivs_occurance_per_category) + 
+    #stat_count(aes(label=number_of_derivs_occurance_per_category),geom="text")+
+    geom_text(aes(label=number_of_derivs_occurance_per_category),size =2, position = position_dodge(width=0.9),vjust=-0.25,color="black") +
+    geom_bar(stat = "identity",colour="black") +
+    facet_wrap(~Primary_Sub_Category, scales = "free",ncol=3)+
+    theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.border     = element_blank(),
+          panel.background = element_rect(fill=NA,colour="black"),
+          #panel.margin.y = unit(0.5,"lines"),
+          panel.spacing = unit(0.5,"lines"),
+          axis.line        = element_line(colour = "black", size = 1),
+          legend.key       = element_blank(),
+          axis.ticks       = element_line(colour = "black", size = 1),
+          axis.text.x      = element_blank(),
+          plot.title       = element_text(hjust = 0.0, size = 15 * scale_value, colour = "black", face="bold"),
+          axis.title       = element_text(size = 15 * scale_value),
+          legend.text      = element_text(size = 6 * scale_value),
+          legend.title     = element_text(size = 6, face = "bold"),
+          legend.position  = "bottom",
+          legend.box = "horizontal",
+          strip.placement="outside",
+          #strip.text = element_text(size=rel(2.0),vjust=-4.0),
+          strip.background=element_rect(fill=NA,colour=NA)
+          )+
+    labs(title= "Analysis of Usage of Various Palm Oil Derivatives in Products",
+         subtitle="(Occurance of Palm Oil Derivatives)",
+         x="",
+         y="Number of Occurances",
+         fill="Palm Oil Derivative")+
+    expand_limits(y=c(0,40))
+
+  ggsave(g, width = 10* scale_value, height = 10 * scale_value, file = filename)
+  g
+}
+
+multi_graph_plot_2(filename = "Analysis of Usage of Various Palm Oil Derivatives in Products.pdf",data=data)
+
+```
+Ingredients segmented by occurence
+```{r}
+lush_products_segmented<-lush_products%>%group_by(Ingredient)%>%mutate(occurance=n_distinct(Product))
+lush_products_segmented<-lush_products_segmented%>%ungroup(Ingredient)
+lush_products_segmented<-lush_products_segmented%>%arrange(desc(occurance))
+lush_products_segmented<-lush_products_segmented%>%distinct(Ingredient,.keep_all=TRUE)
+lush_products_segmented_01<-lush_products_segmented[0:25,]
+lush_products_segmented_01
+vars<-c("Ingredient","occurance","Palm_Oil")
+lush_ingredients_all<-lush_products_segmented_01[vars]
+
+lush_ingredients_all%>%mutate(Ingredient = fct_reorder(Ingredient,occurance))%>%
+  ggplot(aes(x=Ingredient, y=occurance,label=Palm_Oil, fill=Palm_Oil))+
+  geom_bar(stat="identity")+
+  scale_fill_manual(values=c("#66CC99","#CC6666"))+
+  geom_text(aes(label=occurance),size =3, position = position_dodge(width=0),vjust=0.25,color="black")+
+  theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.border     = element_blank(),
+          panel.background = element_rect(fill=NA,colour="black"),
+          #panel.margin.y = unit(0.5,"lines"),
+          panel.spacing = unit(0.5,"lines"),
+          axis.line        = element_line(colour = "black", size = 1),
+          legend.key       = element_blank(),
+          axis.ticks       = element_line(colour = "black", size = 1),
+          axis.title.x = element_blank(),
+          axis.text.x      = element_blank(),
+          plot.title       = element_text(hjust = 0.0, size = 14, colour = "black", face="bold"),
+          axis.title       = element_text(size = 14 * scale_value),
+          legend.text      = element_text(size = 10),
+          legend.title     = element_text(size = 14, face = "bold"),
+          legend.position  = "right",
+          legend.box = "horizontal",
+          strip.placement="outside",
+          strip.background=element_rect(fill=NA,colour=NA)
+          )+
+    labs(title= "Analysis of Top 25 Ingredients Used in Lush Products",
+         x="Number of Occurances",
+         y="Ingredients",
+         fill="Palm Oil Derivative")+
+  coord_flip()+
+  xlab("")
+```
+Lush Ingredients via Palm Oil
+```{r}
+lush_products_segmented_02<-lush_products_segmented%>%filter(Palm_Oil=='yes')
+data<-arrange(lush_products_segmented_02,occurance)
+data
+
+p<-ggplot(data, aes(x=Ingredient, y=occurance,fill=Ingredient, label=occurance)) + 
+    geom_bar(stat = "identity") +
+  geom_text(aes(label=occurance),size =2, position = position_dodge(width=0.9),vjust=-0.25,color="black")+
+  theme(panel.grid.major = element_blank(), 
+          panel.grid.minor = element_blank(),
+          panel.border     = element_blank(),
+          panel.background = element_rect(fill=NA,colour="black"),
+          #panel.margin.y = unit(0.5,"lines"),
+          panel.spacing = unit(0.5,"lines"),
+          axis.line        = element_line(colour = "black", size = 1),
+          legend.key       = element_blank(),
+          axis.ticks       = element_line(colour = "black", size = 1),
+          axis.text.x      = element_blank(),
+          plot.title       = element_text(hjust = 0.0, size = 15 , colour = "black", face="bold"),
+          axis.title       = element_text(size = 15 ),
+          legend.text      = element_text(size = 10),
+          legend.title     = element_text(size = 10, face = "bold"),
+          legend.position  = "right",
+          legend.box = "horizontal",
+          strip.placement="outside",
+          #strip.text = element_text(size=rel(2.0),vjust=-4.0),
+          strip.background=element_rect(fill=NA,colour=NA))+
+  xlab("Palm Oil Derivatives")+
+  ylab("Number of Occurences")
+p+labs(fill="Palm Oil Derivatives",title="Palm Oil Derivative Frequency")
+
+```
+
+

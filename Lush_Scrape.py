@@ -1,15 +1,13 @@
-import requests
 import pandas as pd
 from selenium import webdriver
-from bs4 import BeautifulSoup
 from selenium.common.exceptions import TimeoutException
-from multiprocessing import Queue, Pool, Process
-from operator import itemgetter
+
+
 
 
 # Load Values
 def load_dictionary(list):
-    df = pd.read_excel (r'C:\Users\ellio_vfsxbae\Desktop\4th Year Eng\C&S\lush_ingredients_list.xlsx')
+    df = pd.read_excel (r'D:\profiles\echoi.guest\Documents\GitHub\C-S-\lush_ingredients_list.xlsx')
     for ind in df.index:
         temp = (df['List'][ind])
         list.append(temp)
@@ -63,12 +61,13 @@ def matchIngredients (url,palm_oil_derivatives,palm_oil_products,driver):
         print(block.text)
     for item in specific_product_ingredients:
         print ("comparing item:"+item)
-        if item in palm_oil_ingredients:
+        if item in palm_oil_derivatives:
             palm_oil_products.add(url)
             break
 
 if __name__=='__main__':
-    driver =webdriver.Chrome(options=options)
+    chrome_install = webdriver.remote
+    driver =webdriver.Chrome(chrome_install , options=options)
     palm_oil_ingredients=[]
     load_dictionary(palm_oil_ingredients)
     print(palm_oil_ingredients)
